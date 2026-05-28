@@ -1,7 +1,5 @@
 flask
+pandas
 openpyxl
 reportlab
-twilio
 gunicorn
-werkzeug
-pandas
