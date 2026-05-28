@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from openpyxl import Workbook, load_workbook
 from reportlab.pdfgen import canvas
 from twilio.rest import Client
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -48,10 +49,25 @@ if not os.path.exists(EXCEL_FILE):
 # TWILIO WHATSAPP
 # =========================
 
-account_sid = "AC17f4e4a9be1daad20ed7f6df957366d3"
-auth_token = "97ec03ecefebdd50f7beaa2837af6567"
+TWILIO_SID = os.environ.get("TWILIO_SID")
+TWILIO_TOKEN = os.environ.get("TWILIO_TOKEN")
+TWILIO_WHATSAPP = os.environ.get("TWILIO_WHATSAPP")
+YOUR_WHATSAPP = os.environ.get("YOUR_WHATSAPP")
 
-client = Client(account_sid, auth_token)
+client = None
+
+if TWILIO_SID and TWILIO_TOKEN:
+    client = Client(TWILIO_SID, TWILIO_TOKEN)
+
+# =========================
+# ALLOWED IMAGE TYPES
+# =========================
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # =========================
 # HTML
@@ -61,109 +77,108 @@ HTML = """
 
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>CT Institute Admission Form</title>
 
-    <style>
+<title>CT Institute Admission Form</title>
 
-        body{
-            margin:0;
-            padding:0;
-            font-family:Arial, sans-serif;
-            background:linear-gradient(135deg,#ff9a9e,#fad0c4,#fbc2eb,#a18cd1);
-            min-height:100vh;
-        }
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        .container{
-            width:90%;
-            max-width:650px;
-            background:white;
-            margin:30px auto;
-            padding:30px;
-            border-radius:20px;
-            box-shadow:0 0 20px rgba(0,0,0,0.3);
-        }
+<style>
 
-        .logo{
-            width:160px;
-            height:160px;
-            border-radius:50%;
-            background:black;
-            color:gold;
-            font-size:70px;
-            font-weight:bold;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            margin:auto;
-            border:5px solid gold;
-            font-family:Arial;
-            box-shadow:0 0 15px rgba(0,0,0,0.3);
-        }
+body{
+    margin:0;
+    padding:0;
+    font-family:Arial,sans-serif;
+    background:linear-gradient(135deg,#ff9a9e,#fad0c4,#fbc2eb,#a18cd1);
+    min-height:100vh;
+}
 
-        h1{
-            text-align:center;
-            color:#111;
-            margin-top:15px;
-            font-size:38px;
-        }
+.container{
+    width:90%;
+    max-width:650px;
+    background:white;
+    margin:25px auto;
+    padding:30px;
+    border-radius:20px;
+    box-shadow:0 0 20px rgba(0,0,0,0.3);
+}
 
-        .title{
-            text-align:center;
-            color:#555;
-            font-size:18px;
-            margin-bottom:25px;
-        }
+.logo{
+    width:160px;
+    height:160px;
+    border-radius:50%;
+    background:black;
+    border:6px solid gold;
+    margin:auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:70px;
+    font-weight:bold;
+    color:gold;
+}
 
-        label{
-            font-weight:bold;
-            color:#333;
-            display:block;
-            margin-top:15px;
-            margin-bottom:5px;
-        }
+h1{
+    text-align:center;
+    margin-top:15px;
+    color:#111;
+}
 
-        input,
-        textarea,
-        select{
-            width:100%;
-            padding:14px;
-            border-radius:10px;
-            border:2px solid #ddd;
-            font-size:16px;
-            box-sizing:border-box;
-        }
+.title{
+    text-align:center;
+    color:#555;
+    margin-bottom:25px;
+    line-height:28px;
+}
 
-        textarea{
-            height:100px;
-            resize:none;
-        }
+label{
+    font-weight:bold;
+    display:block;
+    margin-top:15px;
+    margin-bottom:5px;
+}
 
-        .submit-btn{
-            width:100%;
-            background:linear-gradient(90deg,#ff512f,#dd2476);
-            color:white;
-            border:none;
-            padding:15px;
-            border-radius:12px;
-            font-size:20px;
-            margin-top:25px;
-            cursor:pointer;
-            font-weight:bold;
-        }
+input,
+textarea,
+select{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:2px solid #ddd;
+    box-sizing:border-box;
+    font-size:16px;
+}
 
-        .submit-btn:hover{
-            opacity:0.9;
-        }
+textarea{
+    height:100px;
+    resize:none;
+}
 
-        .footer{
-            text-align:center;
-            margin-top:20px;
-            color:#444;
-            font-size:15px;
-        }
+.submit-btn{
+    width:100%;
+    background:linear-gradient(90deg,#ff512f,#dd2476);
+    color:white;
+    border:none;
+    padding:15px;
+    border-radius:12px;
+    font-size:20px;
+    margin-top:25px;
+    cursor:pointer;
+    font-weight:bold;
+}
 
-    </style>
+.submit-btn:hover{
+    opacity:0.9;
+}
+
+.footer{
+    text-align:center;
+    margin-top:20px;
+    color:#444;
+}
+
+</style>
 
 </head>
 
@@ -171,105 +186,69 @@ HTML = """
 
 <div class="container">
 
-    <div class="logo">CT</div>
+<div class="logo">CT</div>
 
-    <h1>CT Institute</h1>
+<h1>CT Institute</h1>
 
-    <div class="title">
-        Online Admission Form <br>
-        Admission Through Vikash Maurya <br>
-        Location: Deoria, Uttar Pradesh
-    </div>
+<div class="title">
+Online Admission Form <br>
+Admission Through Vikash Maurya <br>
+Location: Deoria, Uttar Pradesh
+</div>
 
-    <form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data">
 
-        <label>Student Name</label>
-        <input
-            type="text"
-            name="student_name"
-            placeholder="Enter Full Name"
-            required
-        >
+<label>Student Name</label>
+<input type="text" name="student_name" required>
 
-        <label>Father Name</label>
-        <input
-            type="text"
-            name="father_name"
-            placeholder="Enter Father Name"
-            required
-        >
+<label>Father Name</label>
+<input type="text" name="father_name" required>
 
-        <label>Mother Name</label>
-        <input
-            type="text"
-            name="mother_name"
-            placeholder="Enter Mother Name"
-            required
-        >
+<label>Mother Name</label>
+<input type="text" name="mother_name" required>
 
-        <label>Mobile Number</label>
-        <input
-            type="number"
-            name="mobile"
-            placeholder="Enter 10 Digit Mobile Number"
-            required
-        >
+<label>Mobile Number</label>
+<input type="text" name="mobile" required>
 
-        <label>Aadhaar Number</label>
-        <input
-            type="number"
-            name="aadhaar"
-            placeholder="Enter 12 Digit Aadhaar Number"
-            required
-        >
+<label>Aadhaar Number</label>
+<input type="text" name="aadhaar" required>
 
-        <label>Address</label>
-        <textarea
-            name="address"
-            placeholder="Enter Full Address"
-            required
-        ></textarea>
+<label>Address</label>
+<textarea name="address" required></textarea>
 
-        <label>Select Course</label>
+<label>Select Course</label>
 
-        <select name="course">
+<select name="course">
 
-            <option>ADCA</option>
-            <option>DCA</option>
-            <option>ADFA</option>
-            <option>CCC</option>
-            <option>C#</option>
-            <option>C++</option>
-            <option>O LEVEL</option>
-            <option>TALLY</option>
-            <option>DTP</option>
-            <option>EXCEL</option>
-            <option>ALL COMPUTER COURSE</option>
+<option>ADCA</option>
+<option>DCA</option>
+<option>ADFA</option>
+<option>CCC</option>
+<option>C#</option>
+<option>C++</option>
+<option>O LEVEL</option>
+<option>TALLY</option>
+<option>DTP</option>
+<option>EXCEL</option>
+<option>ALL COMPUTER COURSE</option>
 
-        </select>
+</select>
 
-        <label>Qualification</label>
+<label>Qualification</label>
+<input type="text" name="qualification" required>
 
-        <input
-            type="text"
-            name="qualification"
-            placeholder="10th / 12th / Graduate"
-            required
-        >
+<label>Upload Student Photo</label>
+<input type="file" name="photo" required>
 
-        <label>Upload Student Photo</label>
+<button class="submit-btn" type="submit">
+Submit Admission Form
+</button>
 
-        <input type="file" name="photo" required>
+</form>
 
-        <button class="submit-btn" type="submit">
-            Submit Admission Form
-        </button>
-
-    </form>
-
-    <div class="footer">
-        © CT Institute | Powered By Vikash Maurya
-    </div>
+<div class="footer">
+© CT Institute | Powered By Vikash Maurya
+</div>
 
 </div>
 
@@ -283,75 +262,99 @@ HTML = """
 # =========================
 
 @app.route('/', methods=['GET', 'POST'])
+
 def home():
 
     if request.method == 'POST':
 
-        student_name = request.form['student_name']
-        father_name = request.form['father_name']
-        mother_name = request.form['mother_name']
-        mobile = request.form['mobile']
-        aadhaar = request.form['aadhaar']
-        address = request.form['address']
-        course = request.form['course']
-        qualification = request.form['qualification']
-
-        # PHOTO SAVE
-        photo = request.files['photo']
-
-        filename = secure_filename(photo.filename)
-
-        photo_path = os.path.join(
-            app.config['UPLOAD_FOLDER'],
-            filename
-        )
-
-        photo.save(photo_path)
-
-        # EXCEL SAVE
-
-        wb = load_workbook(EXCEL_FILE)
-        ws = wb.active
-
-        ws.append([
-            student_name,
-            father_name,
-            mother_name,
-            mobile,
-            aadhaar,
-            address,
-            course,
-            qualification,
-            filename
-        ])
-
-        wb.save(EXCEL_FILE)
-
-        # PDF RECEIPT
-
-        pdf_path = f"receipts/{student_name}.pdf"
-
-        c = canvas.Canvas(pdf_path)
-
-        c.setFont("Helvetica-Bold", 18)
-        c.drawString(150, 800, "CT Institute Receipt")
-
-        c.setFont("Helvetica", 14)
-
-        c.drawString(100, 740, f"Student Name: {student_name}")
-        c.drawString(100, 710, f"Father Name: {father_name}")
-        c.drawString(100, 680, f"Mother Name: {mother_name}")
-        c.drawString(100, 650, f"Mobile: {mobile}")
-        c.drawString(100, 620, f"Course: {course}")
-        c.drawString(100, 590, f"Qualification: {qualification}")
-
-        c.save()
-
-        # WHATSAPP MESSAGE
-
         try:
 
-            msg = f'''
+            student_name = request.form['student_name']
+            father_name = request.form['father_name']
+            mother_name = request.form['mother_name']
+            mobile = request.form['mobile']
+            aadhaar = request.form['aadhaar']
+            address = request.form['address']
+            course = request.form['course']
+            qualification = request.form['qualification']
+
+            # =========================
+            # PHOTO SAVE
+            # =========================
+
+            photo = request.files['photo']
+
+            if photo.filename == '':
+                return "No file selected"
+
+            if not allowed_file(photo.filename):
+                return "Only PNG, JPG, JPEG allowed"
+
+            filename = secure_filename(photo.filename)
+
+            unique_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+
+            photo_path = os.path.join(
+                app.config['UPLOAD_FOLDER'],
+                unique_name
+            )
+
+            photo.save(photo_path)
+
+            # =========================
+            # SAVE TO EXCEL
+            # =========================
+
+            wb = load_workbook(EXCEL_FILE)
+            ws = wb.active
+
+            ws.append([
+                student_name,
+                father_name,
+                mother_name,
+                mobile,
+                aadhaar,
+                address,
+                course,
+                qualification,
+                unique_name
+            ])
+
+            wb.save(EXCEL_FILE)
+
+            # =========================
+            # PDF RECEIPT
+            # =========================
+
+            pdf_name = f"{student_name}_{mobile}.pdf"
+
+            pdf_path = os.path.join(PDF_FOLDER, pdf_name)
+
+            c = canvas.Canvas(pdf_path)
+
+            c.setFont("Helvetica-Bold", 20)
+            c.drawString(160, 800, "CT Institute Receipt")
+
+            c.setFont("Helvetica", 14)
+
+            c.drawString(80, 740, f"Student Name: {student_name}")
+            c.drawString(80, 710, f"Father Name: {father_name}")
+            c.drawString(80, 680, f"Mother Name: {mother_name}")
+            c.drawString(80, 650, f"Mobile: {mobile}")
+            c.drawString(80, 620, f"Course: {course}")
+            c.drawString(80, 590, f"Qualification: {qualification}")
+
+            c.save()
+
+            # =========================
+            # WHATSAPP MESSAGE
+            # =========================
+
+            if client:
+
+                try:
+
+                    msg = f'''
 New Admission Received
 
 Name: {student_name}
@@ -359,16 +362,19 @@ Mobile: {mobile}
 Course: {course}
 '''
 
-            client.messages.create(
-                from_='whatsapp:+14155238886',
-                body=msg,
-                to='whatsapp:+919793929693'
-            )
+                    client.messages.create(
+                        from_=TWILIO_WHATSAPP,
+                        body=msg,
+                        to=YOUR_WHATSAPP
+                    )
+
+                except Exception as e:
+                    print("WhatsApp Error:", e)
+
+            return send_file(pdf_path, as_attachment=True)
 
         except Exception as e:
-            print(e)
-
-        return send_file(pdf_path, as_attachment=True)
+            return f"Error: {str(e)}"
 
     return render_template_string(HTML)
 
@@ -377,6 +383,7 @@ Course: {course}
 # =========================
 
 @app.route('/admin')
+
 def admin():
 
     wb = load_workbook(EXCEL_FILE)
@@ -387,6 +394,7 @@ def admin():
     html = """
 
     <html>
+
     <head>
 
     <title>Admin Panel</title>
@@ -464,4 +472,10 @@ def admin():
 # =========================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+
+    port = int(os.environ.get("PORT", 10000))
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
