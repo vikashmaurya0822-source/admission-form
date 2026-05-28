@@ -1,0 +1,6 @@
+flask
+openpyxl
+reportlab
+twilio
+gunicorn
+werkzeug
