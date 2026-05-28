@@ -4,3 +4,4 @@ reportlab
 twilio
 gunicorn
 werkzeug
+pandas
